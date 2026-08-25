@@ -1,16 +1,6 @@
 {
   "sourceLanguage" : "en",
   "strings" : {
-    "%lld%%" : {
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "machine_translated",
-            "value" : "%lld %%"
-          }
-        }
-      }
-    },
     "5-Hour Limit" : {
       "localizations" : {
         "de" : {

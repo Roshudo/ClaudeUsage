@@ -44,7 +44,7 @@ private struct UsageRow: View {
                 Text(title)
                     .font(.subheadline.weight(.medium))
                 Spacer()
-                Text("\(Int(window.utilization.rounded()))%")
+                Text(percentageText(for: window.utilization))
                     .font(.subheadline)
                     .foregroundStyle(color)
             }
@@ -60,6 +60,10 @@ private struct UsageRow: View {
 
     private var color: Color {
         UsageLevel(utilization: window.utilization).color
+    }
+
+    private func percentageText(for utilization: Double) -> String {
+        (utilization / 100).formatted(.percent.precision(.fractionLength(0)))
     }
 
     private func resetText(for date: Date) -> String {
