@@ -11,12 +11,12 @@
         }
       }
     },
-    "5-Hour Window" : {
+    "5-Hour Limit" : {
       "localizations" : {
         "de" : {
           "stringUnit" : {
-            "state" : "machine_translated",
-            "value" : "5-Stunden-Fenster"
+            "state" : "translated",
+            "value" : "5-Stunden-Limit"
           }
         }
       }

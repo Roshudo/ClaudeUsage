@@ -14,7 +14,7 @@ struct UsagePopoverView: View {
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 8)
             case .loaded(let snapshot):
-                UsageRow(title: "5-Hour Window", window: snapshot.fiveHour, resetStyle: .duration)
+                UsageRow(title: "5-Hour Limit", window: snapshot.fiveHour, resetStyle: .duration)
                 Divider()
                 UsageRow(title: "Weekly Limit", window: snapshot.sevenDay, resetStyle: .weekdayTime)
             case .failed(let message):
