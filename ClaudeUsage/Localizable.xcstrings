@@ -1,0 +1,202 @@
+{
+  "sourceLanguage" : "en",
+  "strings" : {
+    "%lld%%" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "%lld %%"
+          }
+        }
+      }
+    },
+    "5-Hour Window" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "5-Stunden-Fenster"
+          }
+        }
+      }
+    },
+    "Claude Usage" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "Claude Nutzung"
+          }
+        }
+      }
+    },
+    "Colored Menu Bar Icon" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "Farbiges Menüleisten-Symbol"
+          }
+        }
+      }
+    },
+    "in %lld hr %lld min" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "in %1$lld Std. %2$lld Min."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "in %1$lld hr %2$lld min"
+          }
+        }
+      }
+    },
+    "in %lld min" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "in %lld Min."
+          }
+        }
+      }
+    },
+    "Keychain access was denied (%d)." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "Zugriff auf den Schlüsselbund wurde verweigert (%d)."
+          }
+        }
+      }
+    },
+    "No Claude credentials found in the Keychain." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "Keine Claude-Anmeldedaten im Schlüsselbund gefunden."
+          }
+        }
+      }
+    },
+    "now" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "jetzt"
+          }
+        }
+      }
+    },
+    "Quit" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "Beenden"
+          }
+        }
+      }
+    },
+    "Refresh" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "Aktualisieren"
+          }
+        }
+      }
+    },
+    "Reset: %@" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "Reset: %@"
+          }
+        }
+      }
+    },
+    "Server error (%lld)." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "Serverfehler (%lld)."
+          }
+        }
+      }
+    },
+    "Session expired – open Xcode's Claude assistant once." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "Sitzung abgelaufen – öffne einmal den Claude-Assistenten von Xcode."
+          }
+        }
+      }
+    },
+    "The credentials stored in the Keychain have an unknown format." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "Die im Schlüsselbund gespeicherten Anmeldedaten haben ein unbekanntes Format."
+          }
+        }
+      }
+    },
+    "Too many requests – please wait a moment before refreshing again." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "Zu viele Anfragen – bitte einen Moment warten, bevor erneut aktualisiert wird."
+          }
+        }
+      }
+    },
+    "Unknown error" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "Unbekannter Fehler"
+          }
+        }
+      }
+    },
+    "Unknown response format." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "Unbekanntes Antwortformat."
+          }
+        }
+      }
+    },
+    "Weekly Limit" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "Wochenlimit"
+          }
+        }
+      }
+    }
+  },
+  "version" : "1.3"
+}
