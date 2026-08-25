@@ -33,9 +33,28 @@ struct UsageWindow: Decodable {
         formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
         return formatter.date(from: String(rebuilt))
     }
+
+    // Ratio of allowance consumed to time elapsed in the window: 1.0 means
+    // usage is tracking exactly with time, >1 means it'll likely run out
+    // before reset, <1 means there's a buffer. Nil right at the start of a
+    // window (elapsed ≈ 0) since the ratio would blow up to a meaningless
+    // number, and nil once there's no reset date to measure elapsed time against.
+    func pace(windowDuration: TimeInterval) -> Double? {
+        guard let resetsAt else { return nil }
+        let remaining = resetsAt.timeIntervalSinceNow
+        guard remaining > 0, remaining < windowDuration else { return nil }
+        let elapsedFraction = 1 - remaining / windowDuration
+        guard elapsedFraction > 0.001 else { return nil }
+        return (utilization / 100) / elapsedFraction
+    }
 }
 
 struct UsageSnapshot: Decodable {
+    // The API doesn't report these, but the window names ("five_hour",
+    // "seven_day") are exactly their fixed durations.
+    static let fiveHourDuration: TimeInterval = 5 * 60 * 60
+    static let sevenDayDuration: TimeInterval = 7 * 24 * 60 * 60
+
     let fiveHour: UsageWindow
     let sevenDay: UsageWindow
 

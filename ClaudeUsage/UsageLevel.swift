@@ -1,8 +1,9 @@
 import SwiftUI
 
-// Single source of truth for mapping a usage percentage to a warning level
-// and its color. Both `UsagePopoverView` and `StatusItemController` derive
-// their colors from this type so threshold/color changes only happen here.
+// Single source of truth for mapping a usage percentage (or pace ratio) to a
+// warning level and its color. Both `UsagePopoverView` and
+// `StatusItemController` derive their colors from this type so
+// threshold/color changes only happen here.
 enum UsageLevel: Equatable {
     case normal
     case elevated
@@ -16,6 +17,22 @@ enum UsageLevel: Equatable {
         case 50..<80:
             self = .elevated
         case 80..<90:
+            self = .high
+        default:
+            self = .critical
+        }
+    }
+
+    // Pace of 1.0 means usage is tracking exactly with the time elapsed in
+    // the window (will land at ~100% right at reset) — that's the "on
+    // schedule" baseline, not yet a concern, so the thresholds start above it.
+    init(pace: Double) {
+        switch pace {
+        case ..<1.0:
+            self = .normal
+        case 1.0..<1.5:
+            self = .elevated
+        case 1.5..<2.0:
             self = .high
         default:
             self = .critical

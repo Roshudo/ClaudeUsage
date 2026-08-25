@@ -14,9 +14,21 @@ struct UsagePopoverView: View {
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 8)
             case .loaded(let snapshot):
-                UsageRow(title: "5-Hour Limit", window: snapshot.fiveHour, resetStyle: .duration)
+                UsageRow(
+                    title: "5-Hour Limit",
+                    window: snapshot.fiveHour,
+                    resetStyle: .duration,
+                    windowDuration: UsageSnapshot.fiveHourDuration,
+                    showPace: viewModel.menuBarMetric == .pace
+                )
                 Divider()
-                UsageRow(title: "Weekly Limit", window: snapshot.sevenDay, resetStyle: .weekdayTime)
+                UsageRow(
+                    title: "Weekly Limit",
+                    window: snapshot.sevenDay,
+                    resetStyle: .weekdayTime,
+                    windowDuration: UsageSnapshot.sevenDayDuration,
+                    showPace: viewModel.menuBarMetric == .pace
+                )
             case .failed(let message):
                 Text(message)
                     .foregroundStyle(.red)
@@ -37,6 +49,8 @@ private struct UsageRow: View {
     let title: LocalizedStringResource
     let window: UsageWindow
     let resetStyle: ResetStyle
+    let windowDuration: TimeInterval
+    let showPace: Bool
 
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
@@ -44,26 +58,60 @@ private struct UsageRow: View {
                 Text(title)
                     .font(.subheadline.weight(.medium))
                 Spacer()
-                Text(percentageText(for: window.utilization))
+                Text(primaryText)
                     .font(.subheadline)
                     .foregroundStyle(color)
             }
             ProgressView(value: min(window.utilization, 100), total: 100)
-                .progressViewStyle(ColoredBarProgressStyle(color: color))
-            if let resetsAt = window.resetsAt {
-                Text("Reset: \(resetText(for: resetsAt))")
-                    .font(.footnote)
-                    .foregroundStyle(.secondary)
+                .progressViewStyle(ColoredBarProgressStyle(color: color, paceMarker: showPace ? elapsedFraction : nil))
+            HStack(spacing: 4) {
+                if showPace, pace != nil {
+                    Text("\(percentageText(for: window.utilization)) used")
+                    Text("·")
+                }
+                if let resetsAt = window.resetsAt {
+                    Text("Reset: \(resetText(for: resetsAt))")
+                }
             }
+            .font(.footnote)
+            .foregroundStyle(.secondary)
         }
     }
 
+    // The tick mark on the bar showing where usage "should" be if it were
+    // tracking exactly with elapsed time — the gap between it and the fill
+    // is the same information the pace number distills to a single ratio.
+    private var elapsedFraction: Double? {
+        guard let resetsAt = window.resetsAt else { return nil }
+        let remaining = resetsAt.timeIntervalSinceNow
+        guard remaining > 0, remaining < windowDuration else { return nil }
+        return 1 - remaining / windowDuration
+    }
+
+    private var pace: Double? {
+        window.pace(windowDuration: windowDuration)
+    }
+
     private var color: Color {
-        UsageLevel(utilization: window.utilization).color
+        if showPace, let pace {
+            return UsageLevel(pace: pace).color
+        }
+        return UsageLevel(utilization: window.utilization).color
+    }
+
+    private var primaryText: String {
+        if showPace, let pace {
+            return paceText(pace)
+        }
+        return percentageText(for: window.utilization)
     }
 
     private func percentageText(for utilization: Double) -> String {
         (utilization / 100).formatted(.percent.precision(.fractionLength(0)))
+    }
+
+    private func paceText(_ pace: Double) -> String {
+        pace.formatted(.number.precision(.fractionLength(1))) + "×"
     }
 
     private func resetText(for date: Date) -> String {
@@ -97,6 +145,7 @@ private struct UsageRow: View {
 // the fill color is drawn explicitly instead.
 private struct ColoredBarProgressStyle: ProgressViewStyle {
     let color: Color
+    var paceMarker: Double? = nil
 
     func makeBody(configuration: Configuration) -> some View {
         let fraction = configuration.fractionCompleted ?? 0
@@ -107,6 +156,15 @@ private struct ColoredBarProgressStyle: ProgressViewStyle {
                 Capsule()
                     .fill(color)
                     .frame(width: geometry.size.width * fraction)
+            }
+            .overlay(alignment: .leading) {
+                if let paceMarker, paceMarker > 0, paceMarker < 1 {
+                    Capsule()
+                        .fill(Color.primary.opacity(1))
+                        .stroke(Color.black.opacity(0.75), lineWidth: 1)
+                        .frame(width: 2.5, height: 9)
+                        .offset(x: geometry.size.width * paceMarker - 1)
+                }
             }
         }
         .frame(height: 6)

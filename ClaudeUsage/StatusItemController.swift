@@ -9,6 +9,8 @@ final class StatusItemController: NSObject, NSMenuDelegate {
     private let popover = NSPopover()
     private let menu = NSMenu()
     private let colorToggleItem = NSMenuItem(title: "", action: nil, keyEquivalent: "")
+    private let percentMetricItem = NSMenuItem(title: "", action: nil, keyEquivalent: "")
+    private let paceMetricItem = NSMenuItem(title: "", action: nil, keyEquivalent: "")
     private let viewModel: UsageViewModel
 
     private var isColoredIconEnabled: Bool {
@@ -53,6 +55,22 @@ final class StatusItemController: NSObject, NSMenuDelegate {
         colorToggleItem.state = isColoredIconEnabled ? .on : .off
         menu.addItem(colorToggleItem)
 
+        let metricItem = NSMenuItem(title: String(localized: "Menu Bar Metric"), action: nil, keyEquivalent: "")
+        let metricSubmenu = NSMenu()
+
+        percentMetricItem.title = String(localized: MenuBarMetric.percent.title)
+        percentMetricItem.action = #selector(selectPercentMetricTapped)
+        percentMetricItem.target = self
+        metricSubmenu.addItem(percentMetricItem)
+
+        paceMetricItem.title = String(localized: MenuBarMetric.pace.title)
+        paceMetricItem.action = #selector(selectPaceMetricTapped)
+        paceMetricItem.target = self
+        metricSubmenu.addItem(paceMetricItem)
+
+        metricItem.submenu = metricSubmenu
+        menu.addItem(metricItem)
+
         menu.addItem(.separator())
 
         let quitItem = NSMenuItem(
@@ -94,6 +112,16 @@ final class StatusItemController: NSObject, NSMenuDelegate {
         statusItem.menu = nil
     }
 
+    // Checkmarks reflect state that can change from outside the menu item
+    // actions themselves (there is none right now besides these items, but
+    // this keeps the menu honest if that changes), so they're refreshed
+    // right before the menu is shown rather than only when toggled.
+    func menuWillOpen(_ menu: NSMenu) {
+        colorToggleItem.state = isColoredIconEnabled ? .on : .off
+        percentMetricItem.state = viewModel.menuBarMetric == .percent ? .on : .off
+        paceMetricItem.state = viewModel.menuBarMetric == .pace ? .on : .off
+    }
+
     private func togglePopover() {
         guard let button = statusItem.button else { return }
         if popover.isShown {
@@ -110,6 +138,16 @@ final class StatusItemController: NSObject, NSMenuDelegate {
     @objc private func toggleColoredIconTapped() {
         isColoredIconEnabled.toggle()
         colorToggleItem.state = isColoredIconEnabled ? .on : .off
+        updateStatusItemAppearance()
+    }
+
+    @objc private func selectPercentMetricTapped() {
+        viewModel.menuBarMetric = .percent
+        updateStatusItemAppearance()
+    }
+
+    @objc private func selectPaceMetricTapped() {
+        viewModel.menuBarMetric = .pace
         updateStatusItemAppearance()
     }
 
@@ -132,29 +170,25 @@ final class StatusItemController: NSObject, NSMenuDelegate {
     private func updateStatusItemAppearance() {
         guard let button = statusItem.button else { return }
         let active = activeWindow()
-        let tint = isColoredIconEnabled ? tintColor(for: active?.utilization) : nil
+        let level = displayLevel(for: active)
+        let tint = isColoredIconEnabled ? tintColor(for: level) : nil
 
         button.image = statusImage(tint: tint)
 
-        guard let window = active else {
+        guard let active else {
             button.title = ""
             return
         }
-        // Some locales (e.g. German) insert a space before "%", which is too
-        // wide for the menu bar — strip it to keep the compact "28%" form.
-        let percentText = (window.utilization / 100)
-            .formatted(.percent.precision(.fractionLength(0)))
-            .components(separatedBy: .whitespaces)
-            .joined()
+        let valueText = metricText(for: active.window, duration: active.duration)
         let title: String
-        if let resetsAt = window.resetsAt {
-            title = " " + percentText + "·" + compactResetText(until: resetsAt)
+        if let resetsAt = active.window.resetsAt {
+            title = " " + valueText + "·" + compactResetText(until: resetsAt)
         } else {
-            title = " " + percentText
+            title = " " + valueText
         }
         // Number and icon share the same tint, including staying neutral at
-        // "normal"/green — under 50% isn't concerning yet, so drawing less
-        // attention to it is the right call.
+        // "normal"/green — under 50% (or under pace) isn't concerning yet,
+        // so drawing less attention to it is the right call.
         if let tint {
             button.attributedTitle = NSAttributedString(
                 string: title,
@@ -201,19 +235,81 @@ final class StatusItemController: NSObject, NSMenuDelegate {
             .formatted(.units(allowed: [.days, .hours, .minutes], width: .narrow, maximumUnitCount: 1, zeroValueUnits: .show(length: 1)))
     }
 
-    private func activeWindow() -> UsageWindow? {
+    // Picks whichever window is more pressing, in whichever unit the
+    // selected metric measures pressure with — the highest percentage when
+    // showing percent, the highest pace when showing pace. Also returns
+    // that window's fixed duration, since pace needs it and percent alone
+    // can't tell a 5-hour window from a weekly one.
+    private func activeWindow() -> (window: UsageWindow, duration: TimeInterval)? {
         guard case .loaded(let snapshot) = viewModel.state else { return nil }
-        return snapshot.sevenDay.utilization > snapshot.fiveHour.utilization ? snapshot.sevenDay : snapshot.fiveHour
+        let five = (window: snapshot.fiveHour, duration: UsageSnapshot.fiveHourDuration)
+        let seven = (window: snapshot.sevenDay, duration: UsageSnapshot.sevenDayDuration)
+
+        switch viewModel.menuBarMetric {
+        case .percent:
+            return seven.window.utilization > five.window.utilization ? seven : five
+        case .pace:
+            let fivePace = five.window.pace(windowDuration: five.duration)
+            let sevenPace = seven.window.pace(windowDuration: seven.duration)
+            switch (fivePace, sevenPace) {
+            case let (fivePace?, sevenPace?):
+                return sevenPace > fivePace ? seven : five
+            case (nil, .some):
+                return seven
+            case (.some, nil):
+                return five
+            case (nil, nil):
+                // Neither window has a usable pace (e.g. just reset) — fall
+                // back to percent so the menu bar still shows something sensible.
+                return seven.window.utilization > five.window.utilization ? seven : five
+            }
+        }
+    }
+
+    private func metricText(for window: UsageWindow, duration: TimeInterval) -> String {
+        switch viewModel.menuBarMetric {
+        case .percent:
+            return percentText(window.utilization)
+        case .pace:
+            guard let pace = window.pace(windowDuration: duration) else {
+                return percentText(window.utilization)
+            }
+            return paceText(pace)
+        }
+    }
+
+    // Some locales (e.g. German) insert a space before "%", which is too
+    // wide for the menu bar — strip it to keep the compact "28%" form.
+    private func percentText(_ utilization: Double) -> String {
+        (utilization / 100)
+            .formatted(.percent.precision(.fractionLength(0)))
+            .components(separatedBy: .whitespaces)
+            .joined()
+    }
+
+    private func paceText(_ pace: Double) -> String {
+        pace.formatted(.number.precision(.fractionLength(1))) + "×"
     }
 
     // Derives from `UsageLevel`, the same source `UsagePopoverView` uses, so
     // threshold/color changes only need to happen in one place. `.normal`
     // stays untinted here so the icon keeps the default template appearance
     // when usage isn't a concern.
-    private func tintColor(for utilization: Double?) -> NSColor? {
-        guard let utilization else { return nil }
-        let level = UsageLevel(utilization: utilization)
-        guard level != .normal else { return nil }
+    private func displayLevel(for active: (window: UsageWindow, duration: TimeInterval)?) -> UsageLevel? {
+        guard let active else { return nil }
+        switch viewModel.menuBarMetric {
+        case .percent:
+            return UsageLevel(utilization: active.window.utilization)
+        case .pace:
+            guard let pace = active.window.pace(windowDuration: active.duration) else {
+                return UsageLevel(utilization: active.window.utilization)
+            }
+            return UsageLevel(pace: pace)
+        }
+    }
+
+    private func tintColor(for level: UsageLevel?) -> NSColor? {
+        guard let level, level != .normal else { return nil }
         return NSColor(level.color)
     }
 }

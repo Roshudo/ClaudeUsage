@@ -1,6 +1,26 @@
 {
   "sourceLanguage" : "en",
   "strings" : {
+    "·" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "·"
+          }
+        }
+      }
+    },
+    "%@ used" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "%@ verwendet"
+          }
+        }
+      }
+    },
     "5-Hour Limit" : {
       "localizations" : {
         "de" : {
@@ -67,6 +87,16 @@
         }
       }
     },
+    "Menu Bar Metric" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "Menüleisten-Metrik"
+          }
+        }
+      }
+    },
     "No Claude credentials found in the Keychain." : {
       "localizations" : {
         "de" : {
@@ -83,6 +113,26 @@
           "stringUnit" : {
             "state" : "machine_translated",
             "value" : "jetzt"
+          }
+        }
+      }
+    },
+    "Pace" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "Pace"
+          }
+        }
+      }
+    },
+    "Percentage" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "Prozentsatz"
           }
         }
       }

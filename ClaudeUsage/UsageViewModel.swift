@@ -1,6 +1,23 @@
 import Foundation
 import Observation
 
+// What number the menu bar (and, when selected, the popover bars) lead
+// with. Lives on the view model rather than in `StatusItemController` since
+// both it and `UsagePopoverView` need to read the current choice.
+enum MenuBarMetric: String, CaseIterable {
+    case percent
+    case pace
+
+    var title: LocalizedStringResource {
+        switch self {
+        case .percent:
+            return "Percentage"
+        case .pace:
+            return "Pace"
+        }
+    }
+}
+
 @Observable
 final class UsageViewModel {
     enum State {
@@ -11,8 +28,16 @@ final class UsageViewModel {
 
     private static let normalInterval: Double = 2 * 60
     private static let rateLimitedInterval: Double = 5 * 60
+    private static let menuBarMetricDefaultsKey = "MenuBarMetric"
 
     private(set) var state: State = .loading
+    var menuBarMetric: MenuBarMetric = MenuBarMetric(
+        rawValue: UserDefaults.standard.string(forKey: UsageViewModel.menuBarMetricDefaultsKey) ?? ""
+    ) ?? .percent {
+        didSet {
+            UserDefaults.standard.set(menuBarMetric.rawValue, forKey: Self.menuBarMetricDefaultsKey)
+        }
+    }
     private let client = ClaudeUsageClient()
     private var pollTask: Task<Void, Never>?
     private var nextInterval: Double = UsageViewModel.normalInterval
