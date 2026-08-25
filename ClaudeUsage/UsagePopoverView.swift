@@ -111,7 +111,7 @@ private struct UsageRow: View {
     }
 
     private func paceText(_ pace: Double) -> String {
-        pace.formatted(.number.precision(.fractionLength(1))) + "×"
+        pace.formatted(.number.precision(.fractionLength(1)))
     }
 
     private func resetText(for date: Date) -> String {

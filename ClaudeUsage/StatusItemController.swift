@@ -288,7 +288,7 @@ final class StatusItemController: NSObject, NSMenuDelegate {
     }
 
     private func paceText(_ pace: Double) -> String {
-        pace.formatted(.number.precision(.fractionLength(1))) + "×"
+        pace.formatted(.number.precision(.fractionLength(1)))
     }
 
     // Derives from `UsageLevel`, the same source `UsagePopoverView` uses, so
