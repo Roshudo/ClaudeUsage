@@ -51,4 +51,18 @@ enum UsageLevel: Equatable {
             return .red
         }
     }
+
+    // Below this, pace-derived colors aren't shown even if pace itself
+    // reads as elevated/high/critical — right after a window resets, tiny
+    // amounts of usage over tiny amounts of elapsed time produce wild pace
+    // swings (e.g. 2% used in the first minute already reads as "way over
+    // pace"), so a color needs at least some real usage behind it to be
+    // trustworthy. Callers treat `nil` as "no color" per their own neutral
+    // convention (no icon tint, `.primary` text in the popover).
+    static let paceDisplayFloor: Double = 25
+
+    static func forPace(_ pace: Double, utilization: Double) -> UsageLevel? {
+        guard utilization >= paceDisplayFloor else { return nil }
+        return UsageLevel(pace: pace)
+    }
 }

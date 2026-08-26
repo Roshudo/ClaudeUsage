@@ -87,6 +87,9 @@
         }
       }
     },
+    "Last updated %@" : {
+
+    },
     "Menu Bar Metric" : {
       "localizations" : {
         "de" : {

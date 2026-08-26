@@ -29,10 +29,34 @@ struct UsagePopoverView: View {
                     windowDuration: UsageSnapshot.sevenDayDuration,
                     showPace: viewModel.menuBarMetric == .pace
                 )
-            case .failed(let message):
+            case .failed(let message, let lastKnown):
                 Text(message)
                     .foregroundStyle(.red)
                     .fixedSize(horizontal: false, vertical: true)
+                if let lastKnown {
+                    // The timestamp only shows up here, next to the error —
+                    // when data loads successfully it's current by
+                    // definition and doesn't need an age attached to it.
+                    Text("Last updated \(lastKnown.fetchedAt, style: .relative)")
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                    Divider()
+                    UsageRow(
+                        title: "5-Hour Limit",
+                        window: lastKnown.snapshot.fiveHour,
+                        resetStyle: .duration,
+                        windowDuration: UsageSnapshot.fiveHourDuration,
+                        showPace: viewModel.menuBarMetric == .pace
+                    )
+                    Divider()
+                    UsageRow(
+                        title: "Weekly Limit",
+                        window: lastKnown.snapshot.sevenDay,
+                        resetStyle: .weekdayTime,
+                        windowDuration: UsageSnapshot.sevenDayDuration,
+                        showPace: viewModel.menuBarMetric == .pace
+                    )
+                }
             }
         }
         .padding(16)

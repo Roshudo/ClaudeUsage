@@ -171,9 +171,9 @@ final class StatusItemController: NSObject, NSMenuDelegate {
         guard let button = statusItem.button else { return }
         let active = activeWindow()
         let level = displayLevel(for: active)
-        let tint = isColoredIconEnabled ? tintColor(for: level) : nil
+        let iconTint = isColoredIconEnabled ? tintColor(for: level) : nil
 
-        button.image = statusImage(tint: tint)
+        button.image = statusImage(tint: iconTint)
 
         guard let active else {
             button.title = ""
@@ -186,16 +186,41 @@ final class StatusItemController: NSObject, NSMenuDelegate {
         } else {
             title = " " + valueText
         }
-        // Number and icon share the same tint, including staying neutral at
-        // "normal"/green — under 50% (or under pace) isn't concerning yet,
-        // so drawing less attention to it is the right call.
-        if let tint {
+        // Number and icon normally share the same tint, including staying
+        // neutral at "normal"/green — under 50% (or under pace) isn't
+        // concerning yet, so drawing less attention to it is the right
+        // call. When the last fetch failed, though, the number reflects
+        // stale data — gray it out regardless of usage level so that's
+        // visible at a glance, while still showing something rather than
+        // nothing.
+        let textTint = isShowingStaleData ? NSColor.secondaryLabelColor : iconTint
+        if let textTint {
             button.attributedTitle = NSAttributedString(
                 string: title,
-                attributes: [.foregroundColor: tint]
+                attributes: [.foregroundColor: textTint]
             )
         } else {
             button.title = title
+        }
+    }
+
+    private var isShowingStaleData: Bool {
+        if case .failed(_, let lastKnown) = viewModel.state {
+            return lastKnown != nil
+        }
+        return false
+    }
+
+    // The snapshot to display: the current one when loaded, or the last
+    // known one when the latest fetch failed but an earlier one succeeded.
+    private var currentSnapshot: UsageSnapshot? {
+        switch viewModel.state {
+        case .loading:
+            return nil
+        case .loaded(let snapshot):
+            return snapshot
+        case .failed(_, let lastKnown):
+            return lastKnown?.snapshot
         }
     }
 
@@ -241,7 +266,7 @@ final class StatusItemController: NSObject, NSMenuDelegate {
     // that window's fixed duration, since pace needs it and percent alone
     // can't tell a 5-hour window from a weekly one.
     private func activeWindow() -> (window: UsageWindow, duration: TimeInterval)? {
-        guard case .loaded(let snapshot) = viewModel.state else { return nil }
+        guard let snapshot = currentSnapshot else { return nil }
         let five = (window: snapshot.fiveHour, duration: UsageSnapshot.fiveHourDuration)
         let seven = (window: snapshot.sevenDay, duration: UsageSnapshot.sevenDayDuration)
 
@@ -304,7 +329,7 @@ final class StatusItemController: NSObject, NSMenuDelegate {
             guard let pace = active.window.pace(windowDuration: active.duration) else {
                 return UsageLevel(utilization: active.window.utilization)
             }
-            return UsageLevel(pace: pace)
+            return UsageLevel.forPace(pace, utilization: active.window.utilization)
         }
     }
 

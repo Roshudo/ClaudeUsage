@@ -20,10 +20,18 @@ enum MenuBarMetric: String, CaseIterable {
 
 @Observable
 final class UsageViewModel {
+    // The last snapshot that was fetched successfully, kept around so that
+    // a later failure — network, auth, keychain, anything — can still show
+    // something useful instead of a blank state.
+    struct LastKnownUsage {
+        let snapshot: UsageSnapshot
+        let fetchedAt: Date
+    }
+
     enum State {
         case loading
         case loaded(UsageSnapshot)
-        case failed(String)
+        case failed(message: String, lastKnown: LastKnownUsage?)
     }
 
     private static let normalInterval: Double = 2 * 60
@@ -41,6 +49,7 @@ final class UsageViewModel {
     private let client = ClaudeUsageClient()
     private var pollTask: Task<Void, Never>?
     private var nextInterval: Double = UsageViewModel.normalInterval
+    private var lastKnownUsage: LastKnownUsage?
 
     func start() {
         guard pollTask == nil else { return }
@@ -54,17 +63,19 @@ final class UsageViewModel {
 
     func refresh() async {
         do {
-            state = .loaded(try await client.fetchUsage())
+            let snapshot = try await client.fetchUsage()
+            lastKnownUsage = LastKnownUsage(snapshot: snapshot, fetchedAt: Date())
+            state = .loaded(snapshot)
             nextInterval = Self.normalInterval
         } catch let error as ClaudeUsageError {
-            state = .failed(error.errorDescription ?? String(localized: "Unknown error"))
+            state = .failed(message: error.errorDescription ?? String(localized: "Unknown error"), lastKnown: lastKnownUsage)
             if case .rateLimited(let retryAfter) = error {
                 nextInterval = max(retryAfter ?? Self.rateLimitedInterval, Self.rateLimitedInterval)
             } else {
                 nextInterval = Self.normalInterval
             }
         } catch {
-            state = .failed(error.localizedDescription)
+            state = .failed(message: error.localizedDescription, lastKnown: lastKnownUsage)
             nextInterval = Self.normalInterval
         }
     }
