@@ -73,6 +73,14 @@ final class StatusItemController: NSObject, NSMenuDelegate {
 
         menu.addItem(.separator())
 
+        let restartItem = NSMenuItem(
+            title: String(localized: "Restart"),
+            action: #selector(restartTapped),
+            keyEquivalent: ""
+        )
+        restartItem.target = self
+        menu.addItem(restartItem)
+
         let quitItem = NSMenuItem(
             title: String(localized: "Quit"),
             action: #selector(quitTapped),
@@ -153,6 +161,20 @@ final class StatusItemController: NSObject, NSMenuDelegate {
 
     @objc private func quitTapped() {
         NSApplication.shared.terminate(nil)
+    }
+
+    // A process can't replace itself in place, so "restart" launches a
+    // fresh instance of the app bundle and only then quits this one —
+    // ordering matters, since quitting first would leave nothing running
+    // if the relaunch failed.
+    @objc private func restartTapped() {
+        let configuration = NSWorkspace.OpenConfiguration()
+        configuration.createsNewApplicationInstance = true
+        NSWorkspace.shared.openApplication(at: Bundle.main.bundleURL, configuration: configuration) { _, _ in
+            DispatchQueue.main.async {
+                NSApplication.shared.terminate(nil)
+            }
+        }
     }
 
     private func observeViewModel() {

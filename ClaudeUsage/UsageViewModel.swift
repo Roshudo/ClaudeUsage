@@ -34,7 +34,7 @@ final class UsageViewModel {
         case failed(message: String, lastKnown: LastKnownUsage?)
     }
 
-    private static let normalInterval: Double = 2 * 60
+    private static let normalInterval: Double = 3 * 60
     private static let rateLimitedInterval: Double = 5 * 60
     private static let menuBarMetricDefaultsKey = "MenuBarMetric"
 
@@ -56,7 +56,11 @@ final class UsageViewModel {
         pollTask = Task { [weak self] in
             while let self, !Task.isCancelled {
                 await self.refresh()
-                try? await Task.sleep(for: .seconds(self.nextInterval))
+                // .suspending pauses while the system is asleep, so the
+                // interval only counts awake time — the default clock keeps
+                // ticking through sleep, which made the next fetch fire the
+                // instant the Mac woke up, regardless of the actual interval.
+                try? await Task.sleep(for: .seconds(self.nextInterval), clock: .suspending)
             }
         }
     }

@@ -170,6 +170,16 @@
         }
       }
     },
+    "Restart" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "Neu starten"
+          }
+        }
+      }
+    },
     "Server error (%lld)." : {
       "localizations" : {
         "de" : {
