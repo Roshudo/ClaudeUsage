@@ -36,6 +36,10 @@ final class UsageViewModel {
 
     private static let normalInterval: Double = 3 * 60
     private static let rateLimitedInterval: Double = 5 * 60
+    // Non-rate-limit failures (e.g. a transient network hiccup right after
+    // launch) back off quickly instead of waiting the full normal interval,
+    // so the app recovers on its own within seconds rather than minutes.
+    private static let initialRetryInterval: Double = 15
     private static let menuBarMetricDefaultsKey = "MenuBarMetric"
 
     private(set) var state: State = .loading
@@ -49,6 +53,7 @@ final class UsageViewModel {
     private let client = ClaudeUsageClient()
     private var pollTask: Task<Void, Never>?
     private var nextInterval: Double = UsageViewModel.normalInterval
+    private var consecutiveFailures = 0
     private var lastKnownUsage: LastKnownUsage?
 
     func start() {
@@ -70,17 +75,28 @@ final class UsageViewModel {
             let snapshot = try await client.fetchUsage()
             lastKnownUsage = LastKnownUsage(snapshot: snapshot, fetchedAt: Date())
             state = .loaded(snapshot)
+            consecutiveFailures = 0
             nextInterval = Self.normalInterval
         } catch let error as ClaudeUsageError {
             state = .failed(message: error.errorDescription ?? String(localized: "Unknown error"), lastKnown: lastKnownUsage)
             if case .rateLimited(let retryAfter) = error {
+                consecutiveFailures = 0
                 nextInterval = max(retryAfter ?? Self.rateLimitedInterval, Self.rateLimitedInterval)
             } else {
-                nextInterval = Self.normalInterval
+                nextInterval = nextBackoffInterval()
             }
         } catch {
             state = .failed(message: error.localizedDescription, lastKnown: lastKnownUsage)
-            nextInterval = Self.normalInterval
+            nextInterval = nextBackoffInterval()
         }
+    }
+
+    // Exponential backoff starting at `initialRetryInterval`, capped at
+    // `normalInterval` so a persistent failure still settles into the same
+    // polling cadence as the happy path rather than backing off forever.
+    private func nextBackoffInterval() -> Double {
+        consecutiveFailures += 1
+        let backoff = Self.initialRetryInterval * pow(2, Double(consecutiveFailures - 1))
+        return min(backoff, Self.normalInterval)
     }
 }
