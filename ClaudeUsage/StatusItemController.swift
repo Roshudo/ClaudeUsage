@@ -215,7 +215,7 @@ final class StatusItemController: NSObject, NSMenuDelegate {
         // stale data — gray it out regardless of usage level so that's
         // visible at a glance, while still showing something rather than
         // nothing.
-        let textTint = isShowingStaleData ? NSColor.secondaryLabelColor : iconTint
+        let textTint = isShowingStaleData ? NSColor.systemGray : iconTint
         if let textTint {
             button.attributedTitle = NSAttributedString(
                 string: title,
