@@ -8,12 +8,18 @@ struct UsagePopoverView: View {
             Text("Claude Usage")
                 .font(.headline)
 
-            switch viewModel.state {
-            case .loading:
-                ProgressView()
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 8)
-            case .loaded(let snapshot):
+            if let failure = currentFailure {
+                FailureNotice(failure: failure, lastUpdated: staleTimestamp)
+            } else if let staleTimestamp {
+                // Data restored from the previous launch, standing in until
+                // this session's first fetch comes back.
+                LastUpdatedText(date: staleTimestamp)
+            }
+
+            if let snapshot = displayedSnapshot {
+                if currentFailure != nil || staleTimestamp != nil {
+                    Divider()
+                }
                 UsageRow(
                     title: "5-Hour Limit",
                     window: snapshot.fiveHour,
@@ -29,38 +35,79 @@ struct UsagePopoverView: View {
                     windowDuration: UsageSnapshot.sevenDayDuration,
                     showPace: viewModel.menuBarMetric == .pace
                 )
-            case .failed(let message, let lastKnown):
-                Text(message)
-                    .foregroundStyle(.red)
-                    .fixedSize(horizontal: false, vertical: true)
-                if let lastKnown {
-                    // The timestamp only shows up here, next to the error —
-                    // when data loads successfully it's current by
-                    // definition and doesn't need an age attached to it.
-                    Text("Last updated \(lastKnown.fetchedAt, style: .relative)")
-                        .font(.footnote)
-                        .foregroundStyle(.secondary)
-                    Divider()
-                    UsageRow(
-                        title: "5-Hour Limit",
-                        window: lastKnown.snapshot.fiveHour,
-                        resetStyle: .duration,
-                        windowDuration: UsageSnapshot.fiveHourDuration,
-                        showPace: viewModel.menuBarMetric == .pace
-                    )
-                    Divider()
-                    UsageRow(
-                        title: "Weekly Limit",
-                        window: lastKnown.snapshot.sevenDay,
-                        resetStyle: .weekdayTime,
-                        windowDuration: UsageSnapshot.sevenDayDuration,
-                        showPace: viewModel.menuBarMetric == .pace
-                    )
-                }
+            } else if currentFailure == nil {
+                ProgressView()
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 8)
             }
         }
         .padding(16)
         .frame(width: 300)
+    }
+
+    private var currentFailure: UsageViewModel.Failure? {
+        guard case .failed(let failure) = viewModel.state else { return nil }
+        return failure
+    }
+
+    // The snapshot on screen: the current one, or the last one that could be
+    // fetched — possibly during a previous launch — when the latest attempt
+    // failed or hasn't come back yet.
+    private var displayedSnapshot: UsageSnapshot? {
+        if case .loaded(let snapshot) = viewModel.state {
+            return snapshot
+        }
+        return viewModel.lastKnownUsage?.snapshot
+    }
+
+    // Only set when what's on screen isn't current: data that loaded
+    // successfully is current by definition and doesn't need an age
+    // attached to it.
+    private var staleTimestamp: Date? {
+        if case .loaded = viewModel.state {
+            return nil
+        }
+        return viewModel.lastKnownUsage?.fetchedAt
+    }
+}
+
+// What went wrong, what to do about it, and when the app will try again.
+// The last part matters because most failures here need no user action at
+// all — without it, a gray icon looks like something the user has to fix.
+private struct FailureNotice: View {
+    let failure: UsageViewModel.Failure
+    let lastUpdated: Date?
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Text(failure.message)
+                .foregroundStyle(.red)
+                .fixedSize(horizontal: false, vertical: true)
+            VStack(alignment: .leading, spacing: 2) {
+                if let hint = failure.hint {
+                    Text(hint)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                if let retryAt = failure.retryAt {
+                    Text("Retrying in \(retryAt, style: .relative)")
+                }
+                if let lastUpdated {
+                    LastUpdatedText(date: lastUpdated)
+                }
+            }
+            .font(.footnote)
+            .foregroundStyle(.secondary)
+        }
+    }
+}
+
+private struct LastUpdatedText: View {
+    let date: Date
+
+    var body: some View {
+        Text("Last updated \(date, style: .relative) ago")
+            .font(.footnote)
+            .foregroundStyle(.secondary)
     }
 }
 

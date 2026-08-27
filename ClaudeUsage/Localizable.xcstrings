@@ -87,8 +87,15 @@
         }
       }
     },
-    "Last updated %@" : {
-
+    "Last updated %@ ago" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Zuletzt aktualisiert vor %@"
+          }
+        }
+      }
     },
     "Menu Bar Metric" : {
       "localizations" : {
@@ -116,6 +123,16 @@
           "stringUnit" : {
             "state" : "machine_translated",
             "value" : "jetzt"
+          }
+        }
+      }
+    },
+    "Open Xcode's Claude assistant once – the widget picks the new session up automatically." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Öffne einmal den Claude-Assistenten von Xcode – das Widget übernimmt die neue Sitzung automatisch."
           }
         }
       }
@@ -180,6 +197,16 @@
         }
       }
     },
+    "Retrying in %@" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Neuer Versuch in %@"
+          }
+        }
+      }
+    },
     "Server error (%lld)." : {
       "localizations" : {
         "de" : {
@@ -190,12 +217,12 @@
         }
       }
     },
-    "Session expired – open Xcode's Claude assistant once." : {
+    "Session expired." : {
       "localizations" : {
         "de" : {
           "stringUnit" : {
-            "state" : "machine_translated",
-            "value" : "Sitzung abgelaufen – öffne einmal den Claude-Assistenten von Xcode."
+            "state" : "translated",
+            "value" : "Sitzung abgelaufen."
           }
         }
       }
@@ -210,12 +237,12 @@
         }
       }
     },
-    "Too many requests – please wait a moment before refreshing again." : {
+    "Too many requests." : {
       "localizations" : {
         "de" : {
           "stringUnit" : {
-            "state" : "machine_translated",
-            "value" : "Zu viele Anfragen – bitte einen Moment warten, bevor erneut aktualisiert wird."
+            "state" : "translated",
+            "value" : "Zu viele Anfragen."
           }
         }
       }

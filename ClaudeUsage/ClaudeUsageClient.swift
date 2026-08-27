@@ -9,6 +9,13 @@ struct UsageWindow: Decodable {
         case resetsAt = "resets_at"
     }
 
+    // Declaring `init(from:)` below suppresses the memberwise initializer,
+    // which `UsageCache` needs to rebuild a persisted snapshot.
+    init(utilization: Double, resetsAt: Date?) {
+        self.utilization = utilization
+        self.resetsAt = resetsAt
+    }
+
     init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         utilization = try container.decodeIfPresent(Double.self, forKey: .utilization) ?? 0
@@ -73,13 +80,24 @@ enum ClaudeUsageError: Error, LocalizedError {
     var errorDescription: String? {
         switch self {
         case .notAuthenticated:
-            return String(localized: "Session expired – open Xcode's Claude assistant once.")
+            return String(localized: "Session expired.")
         case .rateLimited:
-            return String(localized: "Too many requests – please wait a moment before refreshing again.")
+            return String(localized: "Too many requests.")
         case .server(let code):
             return String(localized: "Server error (\(code)).")
         case .decoding:
             return String(localized: "Unknown response format.")
+        }
+    }
+
+    // Only failures the user can actually act on get a suggestion; for the
+    // rest the popover shows when the app retries by itself instead.
+    var recoverySuggestion: String? {
+        switch self {
+        case .notAuthenticated:
+            return KeychainCredentialError.signInHint
+        case .rateLimited, .server, .decoding:
+            return nil
         }
     }
 }
@@ -89,11 +107,17 @@ struct ClaudeUsageClient {
     private let usageURL = URL(string: "https://api.anthropic.com/api/oauth/usage")!
 
     func fetchUsage() async throws -> UsageSnapshot {
-        let accessToken = try KeychainCredentialReader.loadAccessToken()
+        let credentials = try KeychainCredentialReader.loadCredentials()
+        // Failing here rather than on the wire keeps an expired session from
+        // spending a request — and a slot in the server's rate limit — on a
+        // call that can only come back 401.
+        guard !credentials.isExpired else {
+            throw ClaudeUsageError.notAuthenticated
+        }
 
         var request = URLRequest(url: usageURL)
         request.httpMethod = "GET"
-        request.setValue("Bearer \(accessToken)", forHTTPHeaderField: "Authorization")
+        request.setValue("Bearer \(credentials.accessToken)", forHTTPHeaderField: "Authorization")
         request.setValue("application/json", forHTTPHeaderField: "Accept")
 
         let (data, response) = try await session.data(for: request)

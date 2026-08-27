@@ -12,6 +12,7 @@ final class StatusItemController: NSObject, NSMenuDelegate {
     private let percentMetricItem = NSMenuItem(title: "", action: nil, keyEquivalent: "")
     private let paceMetricItem = NSMenuItem(title: "", action: nil, keyEquivalent: "")
     private let viewModel: UsageViewModel
+    private var wakeObserver: NSObjectProtocol?
 
     private var isColoredIconEnabled: Bool {
         get { UserDefaults.standard.object(forKey: Self.coloredIconDefaultsKey) as? Bool ?? true }
@@ -25,7 +26,23 @@ final class StatusItemController: NSObject, NSMenuDelegate {
         configureMenu()
         configurePopover()
         observeViewModel()
+        observeWake()
         viewModel.start()
+    }
+
+    // Opening the lid is the moment the data on screen is most likely to be
+    // hours old, and the poll loop's remaining interval doesn't know that —
+    // so the schedule is realigned with the wake instead.
+    private func observeWake() {
+        wakeObserver = NSWorkspace.shared.notificationCenter.addObserver(
+            forName: NSWorkspace.didWakeNotification,
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            Task { @MainActor in
+                self?.viewModel.restartPolling()
+            }
+        }
     }
 
     private func configureStatusItem() {
@@ -139,8 +156,10 @@ final class StatusItemController: NSObject, NSMenuDelegate {
         }
     }
 
+    // Forced, so an explicit Refresh isn't swallowed by the wait for new
+    // credentials — the user may have just signed in.
     @objc private func refreshTapped() {
-        Task { await viewModel.refresh() }
+        Task { await viewModel.refresh(force: true) }
     }
 
     @objc private func toggleColoredIconTapped() {
@@ -226,24 +245,24 @@ final class StatusItemController: NSObject, NSMenuDelegate {
         }
     }
 
+    // True whenever the numbers on screen aren't from a current fetch:
+    // either the last attempt failed, or the first attempt of this launch
+    // is still in flight and persisted data is standing in for it.
     private var isShowingStaleData: Bool {
-        if case .failed(_, let lastKnown) = viewModel.state {
-            return lastKnown != nil
+        if case .loaded = viewModel.state {
+            return false
         }
-        return false
+        return viewModel.lastKnownUsage != nil
     }
 
     // The snapshot to display: the current one when loaded, or the last
-    // known one when the latest fetch failed but an earlier one succeeded.
+    // known one — possibly restored from a previous launch — when the
+    // latest fetch failed or hasn't come back yet.
     private var currentSnapshot: UsageSnapshot? {
-        switch viewModel.state {
-        case .loading:
-            return nil
-        case .loaded(let snapshot):
+        if case .loaded(let snapshot) = viewModel.state {
             return snapshot
-        case .failed(_, let lastKnown):
-            return lastKnown?.snapshot
         }
+        return viewModel.lastKnownUsage?.snapshot
     }
 
     // Plain template images auto-adapt to the menu bar's light/dark
