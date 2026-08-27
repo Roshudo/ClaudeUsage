@@ -25,7 +25,7 @@ struct UsagePopoverView: View {
                     window: snapshot.fiveHour,
                     resetStyle: .duration,
                     windowDuration: UsageSnapshot.fiveHourDuration,
-                    showPace: viewModel.menuBarMetric == .pace
+                    metric: viewModel.menuBarMetric
                 )
                 Divider()
                 UsageRow(
@@ -33,7 +33,7 @@ struct UsagePopoverView: View {
                     window: snapshot.sevenDay,
                     resetStyle: .weekdayTime,
                     windowDuration: UsageSnapshot.sevenDayDuration,
-                    showPace: viewModel.menuBarMetric == .pace
+                    metric: viewModel.menuBarMetric
                 )
             } else if currentFailure == nil {
                 ProgressView()
@@ -121,7 +121,7 @@ private struct UsageRow: View {
     let window: UsageWindow
     let resetStyle: ResetStyle
     let windowDuration: TimeInterval
-    let showPace: Bool
+    let metric: MenuBarMetric
 
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
@@ -134,24 +134,39 @@ private struct UsageRow: View {
                     .foregroundStyle(color)
             }
             ProgressView(value: min(window.utilization, 100), total: 100)
-                .progressViewStyle(ColoredBarProgressStyle(color: color, paceMarker: showPace ? elapsedFraction : nil))
+                .progressViewStyle(ColoredBarProgressStyle(color: color, scheduleMarker: metric == .overloadFactor ? elapsedFraction : nil))
             HStack(spacing: 4) {
-                if showPace, pace != nil {
+                // In overload mode the primary text is the ratio, so this row
+                // is the only place the raw percent still shows up — and
+                // utilization always decodes to a value (0 when missing), so
+                // this part never has to drop out.
+                if metric == .overloadFactor {
                     Text("\(percentageText(for: window.utilization)) used")
                     Text("·")
                 }
-                if let resetsAt = window.resetsAt {
-                    Text("Reset: \(resetText(for: resetsAt))")
-                }
+                resetLabel
             }
             .font(.footnote)
             .foregroundStyle(.secondary)
         }
     }
 
+    // The reset date is present on every live response and on the cached
+    // snapshot that failure/first-launch paths display, so `nil` would only
+    // mean the response was malformed in a way the client silently tolerated
+    // (e.g. an unparseable date string). Surface that in development.
+    private var resetLabel: AnyView {
+        if let resetsAt = window.resetsAt {
+            return AnyView(Text("Reset: \(resetText(for: resetsAt))"))
+        }
+        assertionFailure("UsageWindow without resetsAt in the popover")
+        return AnyView(EmptyView())
+    }
+
     // The tick mark on the bar showing where usage "should" be if it were
     // tracking exactly with elapsed time — the gap between it and the fill
-    // is the same information the pace number distills to a single ratio.
+    // is the same information the overload-factor number distills to a
+    // single ratio.
     private var elapsedFraction: Double? {
         guard let resetsAt = window.resetsAt else { return nil }
         let remaining = resetsAt.timeIntervalSinceNow
@@ -159,30 +174,50 @@ private struct UsageRow: View {
         return 1 - remaining / windowDuration
     }
 
-    private var pace: Double? {
-        window.pace(windowDuration: windowDuration)
+    private var overloadFactor: Double? {
+        window.overloadFactor(windowDuration: windowDuration)
     }
 
     private var color: Color {
-        if showPace, let pace {
-            return UsageLevel(pace: pace).color
+        switch metric {
+        case .percent:
+            return UsageLevel(utilization: window.utilization).color
+        case .overloadFactor:
+            guard let overloadFactor else { return UsageLevel(utilization: window.utilization).color }
+            return UsageLevel(overloadFactor: overloadFactor).color
         }
-        return UsageLevel(utilization: window.utilization).color
     }
 
     private var primaryText: String {
-        if showPace, let pace {
-            return paceText(pace)
+        switch metric {
+        case .percent:
+            return percentageText(for: window.utilization)
+        case .overloadFactor:
+            guard let overloadFactor else { return percentageText(for: window.utilization) }
+            if overloadFactor >= UsageLevel.overloadFactorDisplayCap {
+                // 100% gets its own exact reading; anything below it that
+                // still exceeds the cap shows the capped ">10".
+                return window.utilization >= 100
+                    ? percentageText(for: window.utilization)
+                    : overloadFactorDisplayText()
+            }
+            return ratioText(overloadFactor)
         }
-        return percentageText(for: window.utilization)
     }
 
     private func percentageText(for utilization: Double) -> String {
         (utilization / 100).formatted(.percent.precision(.fractionLength(0)))
     }
 
-    private func paceText(_ pace: Double) -> String {
-        pace.formatted(.number.precision(.fractionLength(1)))
+    private func ratioText(_ ratio: Double) -> String {
+        ratio.formatted(.number.precision(.fractionLength(1)))
+    }
+
+    // Capped values lose their decimals anyway, so ">10" (never ">10.3") —
+    // mirrors the menu bar text, so both surfaces read identically.
+    private func overloadFactorDisplayText() -> String {
+        ">" + UsageLevel.overloadFactorDisplayCap
+            .formatted(.number.precision(.fractionLength(0)))
     }
 
     private func resetText(for date: Date) -> String {
@@ -216,7 +251,7 @@ private struct UsageRow: View {
 // the fill color is drawn explicitly instead.
 private struct ColoredBarProgressStyle: ProgressViewStyle {
     let color: Color
-    var paceMarker: Double? = nil
+    var scheduleMarker: Double? = nil
 
     func makeBody(configuration: Configuration) -> some View {
         let fraction = configuration.fractionCompleted ?? 0
@@ -229,12 +264,12 @@ private struct ColoredBarProgressStyle: ProgressViewStyle {
                     .frame(width: geometry.size.width * fraction)
             }
             .overlay(alignment: .leading) {
-                if let paceMarker, paceMarker > 0, paceMarker < 1 {
+                if let scheduleMarker, scheduleMarker > 0, scheduleMarker < 1 {
                     Capsule()
                         .fill(Color.primary.opacity(1))
                         .stroke(Color.black.opacity(0.75), lineWidth: 1)
                         .frame(width: 2.5, height: 9)
-                        .offset(x: geometry.size.width * paceMarker - 1)
+                        .offset(x: geometry.size.width * scheduleMarker - 1)
                 }
             }
         }

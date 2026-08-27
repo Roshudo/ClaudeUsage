@@ -4,16 +4,16 @@ import Observation
 // What number the menu bar (and, when selected, the popover bars) lead
 // with. Lives on the view model rather than in `StatusItemController` since
 // both it and `UsagePopoverView` need to read the current choice.
-enum MenuBarMetric: String, CaseIterable {
+enum MenuBarMetric: String {
     case percent
-    case pace
+    case overloadFactor
 
     var title: LocalizedStringResource {
         switch self {
         case .percent:
             return "Percentage"
-        case .pace:
-            return "Pace"
+        case .overloadFactor:
+            return "Overload Factor"
         }
     }
 }

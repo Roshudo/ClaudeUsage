@@ -137,12 +137,12 @@
         }
       }
     },
-    "Pace" : {
+    "Overload Factor" : {
       "localizations" : {
         "de" : {
           "stringUnit" : {
-            "state" : "machine_translated",
-            "value" : "Pace"
+            "state" : "translated",
+            "value" : "Überlastfaktor"
           }
         }
       }

@@ -4,11 +4,11 @@ A lightweight macOS menu bar app that keeps an eye on your [Claude Code](https:/
 
 ## Features
 
-- **Menu bar display** of whichever limit is currently most pressing (5-hour or weekly window), shown as either a percentage or a pace (consumption rate relative to time elapsed in the window)
-- **Popover** with a detailed view of both usage windows (5 hours / 7 days), including progress bars, reset time, and a pace marker
-- **Color-coded warning levels** (green/yellow/orange/red) based on utilization or pace — see [How do the warning colors work?](#how-do-the-warning-colors-work)
-- **Automatic refresh** every 2 minutes (less often when rate-limited)
-- Toggleable: colored or monochrome menu bar icon, and percentage or pace display
+- **Menu bar display** of whichever limit is currently most pressing (5-hour or weekly window), shown as a percentage or as an overload factor (remaining time relative to remaining budget)
+- **Popover** with a detailed view of both usage windows (5 hours / 7 days), including progress bars, reset time, and a schedule marker
+- **Color-coded warning levels** (green/yellow/orange/red) based on utilization or overload factor — see [How do the warning colors work?](#how-do-the-warning-colors-work)
+- **Automatic refresh** every 3 minutes (less often when rate-limited)
+- Toggleable: colored or monochrome menu bar icon, and percentage or overload factor display
 
 ## Requirements
 
@@ -39,16 +39,18 @@ If no matching Keychain item is found — for example, if you've never signed in
 
 Both the menu bar icon/text and the popover derive their colors from the same thresholds, defined in [`UsageLevel.swift`](ClaudeUsage/ClaudeUsage/UsageLevel.swift):
 
-| Level | Utilization (percentage mode) | Pace (pace mode) | Color |
+| Level | Utilization (percentage mode) | Overload factor (overload mode) | Color |
 | --- | --- | --- | --- |
-| Normal | < 50% | < 1.0 | green |
-| Elevated | 50–80% | 1.0–1.5 | yellow |
-| High | 80–90% | 1.5–2.0 | orange |
-| Critical | ≥ 90% | ≥ 2.0 | red |
+| Normal | ≤ 50% | ≤ 1.0 | green |
+| Elevated | > 50–80% | > 1.0 – 1.5 | yellow |
+| High | > 80–90% | > 1.5 – 2.0 | orange |
+| Critical | > 90% | > 2.0 | red |
 
-A pace of `1.0` means usage is tracking exactly with the time elapsed in the window (it'll land at ~100% right at reset) — that's the "on schedule" baseline, not yet a concern, so the elevated/high/critical bands only start above it.
+A band only steps up once its value *exceeds* the band edge — 50% utilization or a factor of exactly 2.0 still wear the lower color.
 
-**25% floor for pace colors — menu bar only.** Pace is a ratio, so right after a window resets, tiny amounts of usage over a tiny amount of elapsed time can produce wild swings — e.g. using just 2% in the first minute of a 5-hour window already reads as "way over pace". Flashing a loud warning color in the menu bar for that would be more alarming than useful, so there the pace-based color only appears once utilization in that window reaches **25%**; below that, the icon/text stay neutral (no tint) no matter how extreme the pace ratio looks. The pace *number* itself is still shown — only its color is suppressed. The popover isn't as "in your face", so it always shows the real pace color, even below 25%.
+The overload factor is `remaining time ÷ remaining budget`, both as fractions of the whole window. 1.0 is the "on schedule" baseline (consumption keeps running at the window's nominal pace and lands at ~100% right at reset); 2.0 means consumption must halve to reach reset with exactly a full budget behind it. Because it only uses the remaining state, it reads as a stable 1.0 right after a reset, and a spent window (≥ 100% used) produces `.infinity`.
+
+**Overload factor display cap.** Past 10 the number stops being actionable ("how much must I cut" above 10 is just "wait for reset"), so menu bar and popover both show the capped `>=10` there. A window at (or beyond) **exactly 100%** utilization instead shows its exact `100%` reading in the critical color — the reset countdown next to it already tells you how long until the budget opens again.
 
 The menu bar icon additionally treats "Normal"/green as neutral (no tint at all) rather than drawing it in green, so the icon only calls attention to itself once something is actually elevated, high, or critical. The popover shows the real green so you can see at a glance that a window is healthy.
 

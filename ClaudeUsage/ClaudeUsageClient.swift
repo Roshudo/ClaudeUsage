@@ -41,18 +41,33 @@ struct UsageWindow: Decodable {
         return formatter.date(from: String(rebuilt))
     }
 
-    // Ratio of allowance consumed to time elapsed in the window: 1.0 means
-    // usage is tracking exactly with time, >1 means it'll likely run out
-    // before reset, <1 means there's a buffer. Nil right at the start of a
-    // window (elapsed ≈ 0) since the ratio would blow up to a meaningless
-    // number, and nil once there's no reset date to measure elapsed time against.
-    func pace(windowDuration: TimeInterval) -> Double? {
+    // Remaining time relative to the remaining budget, both as fractions of
+    // the full window — 1.0 means consumption can keep running at the
+    // window's nominal pace (100% of the limit spread over the whole period)
+    // and land at exactly 100% at reset, 2 means it must halve to make the
+    // budget last, and very large values mean the window is exhausted until
+    // reset.
+    //
+    // It's fully determined by the remaining state rather than the elapsed
+    // rate, so it reads as a stable 1.0 right after a reset instead of
+    // blowing up.
+    // `.infinity` is returned instead of `nil` once the budget is at or
+    // beyond 100%: exhausted is the *most* overload the metric can measure,
+    // not a missing measurement — callers treat it accordingly (winning
+    // "most pressing window" comparisons, capping the displayed text).
+    // `nil` is reserved for a window with no reset date left to measure
+    // against (e.g. the reset already passed but the next snapshot hasn't
+    // arrived), where the number would genuinely be undefined.
+    func overloadFactor(windowDuration: TimeInterval) -> Double? {
         guard let resetsAt else { return nil }
         let remaining = resetsAt.timeIntervalSinceNow
-        guard remaining > 0, remaining < windowDuration else { return nil }
-        let elapsedFraction = 1 - remaining / windowDuration
-        guard elapsedFraction > 0.001 else { return nil }
-        return (utilization / 100) / elapsedFraction
+        guard remaining > 0 else { return nil }
+        let remainingFraction = remaining / windowDuration
+        if utilization >= 100 { return .infinity }
+        // No epsilon on the budget: the time term already approaches the
+        // same .infinity as remaining → 0, so the ratio only jumps within
+        // the display cap (">10") where it no longer matters.
+        return remainingFraction / (1 - utilization / 100)
     }
 }
 

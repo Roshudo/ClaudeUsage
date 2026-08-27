@@ -1,6 +1,6 @@
 import SwiftUI
 
-// Single source of truth for mapping a usage percentage (or pace ratio) to a
+// Single source of truth for mapping a usage percentage (or ratio metric) to a
 // warning level and its color. Both `UsagePopoverView` and
 // `StatusItemController` derive their colors from this type so
 // threshold/color changes only happen here.
@@ -10,33 +10,47 @@ enum UsageLevel: Equatable {
     case high
     case critical
 
+    // Same "step up only past the edge" rule as the ratio bands: a window
+    // sitting exactly at 50% is still normal, only exceeding the edge moves
+    // it to the next, more alarming color.
     init(utilization: Double) {
         switch utilization {
-        case ..<50:
+        case ...50:
             self = .normal
-        case 50..<80:
+        case ...80:
             self = .elevated
-        case 80..<90:
+        case ...90:
             self = .high
         default:
             self = .critical
         }
     }
 
-    // Pace of 1.0 means usage is tracking exactly with the time elapsed in
-    // the window (will land at ~100% right at reset) — that's the "on
-    // schedule" baseline, not yet a concern, so the thresholds start above it.
-    init(pace: Double) {
-        switch pace {
-        case ..<1.0:
-            self = .normal
-        case 1.0..<1.5:
-            self = .elevated
-        case 1.5..<2.0:
-            self = .high
+    // The overload factor's bands. 1.0 is the "on schedule" baseline, and a
+    // band stays in effect while the ratio sits *at* its upper edge — only
+    // strictly exceeding the edge steps up to the next, more alarming color.
+    private static func level(forRatio ratio: Double) -> UsageLevel {
+        switch ratio {
+        case ...1.0:
+            return .normal
+        case ...1.5:
+            return .elevated
+        case ...2.0:
+            return .high
         default:
-            self = .critical
+            return .critical
         }
+    }
+
+    // Overload factor of 1.0 means consumption can keep running at the
+    // window's nominal pace (budget spread evenly over the whole period)
+    // and land at exactly 100% at reset — the "on schedule" baseline, not
+    // yet a concern. Above it, the budget mathematically cannot last until
+    // reset at that pace, so every step above 1.0 is strictly worse than
+    // the one below. `Double.infinity` (exhausted budget) falls into
+    // `.critical` on its own.
+    init(overloadFactor: Double) {
+        self = Self.level(forRatio: overloadFactor)
     }
 
     var color: Color {
@@ -52,17 +66,9 @@ enum UsageLevel: Equatable {
         }
     }
 
-    // Below this, pace-derived colors aren't shown even if pace itself
-    // reads as elevated/high/critical — right after a window resets, tiny
-    // amounts of usage over tiny amounts of elapsed time produce wild pace
-    // swings (e.g. 2% used in the first minute already reads as "way over
-    // pace"), so a color needs at least some real usage behind it to be
-    // trustworthy. Callers treat `nil` as "no color" per their own neutral
-    // convention (no icon tint, `.primary` text in the popover).
-    static let paceDisplayFloor: Double = 25
-
-    static func forPace(_ pace: Double, utilization: Double) -> UsageLevel? {
-        guard utilization >= paceDisplayFloor else { return nil }
-        return UsageLevel(pace: pace)
-    }
+    // Beyond this, the number stops conveying information ("how much of the
+    // budget you must cut to reach reset on time" is no longer a number you
+    // can act on) — display shows ">10" instead, so both the menu bar and
+    // the popover need to cap with this same limit.
+    static let overloadFactorDisplayCap: Double = 10
 }

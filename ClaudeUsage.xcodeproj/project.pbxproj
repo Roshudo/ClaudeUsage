@@ -8,11 +8,15 @@
 
 /* Begin PBXBuildFile section */
 		B0500A4A303EC9F3004C8576 /* README.md in Resources */ = {isa = PBXBuildFile; fileRef = B0500A49303EC9F3004C8576 /* README.md */; };
+		B0666082304059C70003545D /* AGENTS.md in Resources */ = {isa = PBXBuildFile; fileRef = B0666081304059C20003545D /* AGENTS.md */; };
+		B0666084304059D10003545D /* CLAUDE.md in Resources */ = {isa = PBXBuildFile; fileRef = B0666083304059CB0003545D /* CLAUDE.md */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
 		000000000000000000000120 /* ClaudeUsage.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = ClaudeUsage.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		B0500A49303EC9F3004C8576 /* README.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = README.md; sourceTree = "<group>"; };
+		B0666081304059C20003545D /* AGENTS.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = AGENTS.md; sourceTree = "<group>"; };
+		B0666083304059CB0003545D /* CLAUDE.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = CLAUDE.md; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
@@ -48,6 +52,8 @@
 		000000000000000000000001 = {
 			isa = PBXGroup;
 			children = (
+				B0666081304059C20003545D /* AGENTS.md */,
+				B0666083304059CB0003545D /* CLAUDE.md */,
 				B0500A49303EC9F3004C8576 /* README.md */,
 				000000000000000000000010 /* ClaudeUsage */,
 				000000000000000000000020 /* Products */,
@@ -122,6 +128,8 @@
 		000000000000000140000000 /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			files = (
+				B0666084304059D10003545D /* CLAUDE.md in Resources */,
+				B0666082304059C70003545D /* AGENTS.md in Resources */,
 				B0500A4A303EC9F3004C8576 /* README.md in Resources */,
 			);
 		};

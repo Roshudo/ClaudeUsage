@@ -10,7 +10,7 @@ final class StatusItemController: NSObject, NSMenuDelegate {
     private let menu = NSMenu()
     private let colorToggleItem = NSMenuItem(title: "", action: nil, keyEquivalent: "")
     private let percentMetricItem = NSMenuItem(title: "", action: nil, keyEquivalent: "")
-    private let paceMetricItem = NSMenuItem(title: "", action: nil, keyEquivalent: "")
+    private let overloadFactorMetricItem = NSMenuItem(title: "", action: nil, keyEquivalent: "")
     private let viewModel: UsageViewModel
     private var wakeObserver: NSObjectProtocol?
 
@@ -39,7 +39,7 @@ final class StatusItemController: NSObject, NSMenuDelegate {
             object: nil,
             queue: .main
         ) { [weak self] _ in
-            Task { @MainActor in
+            Task { @MainActor [weak self] in
                 self?.viewModel.restartPolling()
             }
         }
@@ -80,10 +80,10 @@ final class StatusItemController: NSObject, NSMenuDelegate {
         percentMetricItem.target = self
         metricSubmenu.addItem(percentMetricItem)
 
-        paceMetricItem.title = String(localized: MenuBarMetric.pace.title)
-        paceMetricItem.action = #selector(selectPaceMetricTapped)
-        paceMetricItem.target = self
-        metricSubmenu.addItem(paceMetricItem)
+        overloadFactorMetricItem.title = String(localized: MenuBarMetric.overloadFactor.title)
+        overloadFactorMetricItem.action = #selector(selectOverloadFactorMetricTapped)
+        overloadFactorMetricItem.target = self
+        metricSubmenu.addItem(overloadFactorMetricItem)
 
         metricItem.submenu = metricSubmenu
         menu.addItem(metricItem)
@@ -144,7 +144,7 @@ final class StatusItemController: NSObject, NSMenuDelegate {
     func menuWillOpen(_ menu: NSMenu) {
         colorToggleItem.state = isColoredIconEnabled ? .on : .off
         percentMetricItem.state = viewModel.menuBarMetric == .percent ? .on : .off
-        paceMetricItem.state = viewModel.menuBarMetric == .pace ? .on : .off
+        overloadFactorMetricItem.state = viewModel.menuBarMetric == .overloadFactor ? .on : .off
     }
 
     private func togglePopover() {
@@ -173,8 +173,8 @@ final class StatusItemController: NSObject, NSMenuDelegate {
         updateStatusItemAppearance()
     }
 
-    @objc private func selectPaceMetricTapped() {
-        viewModel.menuBarMetric = .pace
+    @objc private func selectOverloadFactorMetricTapped() {
+        viewModel.menuBarMetric = .overloadFactor
         updateStatusItemAppearance()
     }
 
@@ -228,8 +228,8 @@ final class StatusItemController: NSObject, NSMenuDelegate {
             title = " " + valueText
         }
         // Number and icon normally share the same tint, including staying
-        // neutral at "normal"/green — under 50% (or under pace) isn't
-        // concerning yet, so drawing less attention to it is the right
+        // neutral at "normal"/green — under 50% (or under 1.0 overload)
+        // isn't concerning yet, so drawing less attention to it is the right
         // call. When the last fetch failed, though, the number reflects
         // stale data — gray it out regardless of usage level so that's
         // visible at a glance, while still showing something rather than
@@ -301,11 +301,11 @@ final class StatusItemController: NSObject, NSMenuDelegate {
             .formatted(.units(allowed: [.days, .hours, .minutes], width: .narrow, maximumUnitCount: 1, zeroValueUnits: .show(length: 1)))
     }
 
-    // Picks whichever window is more pressing, in whichever unit the
-    // selected metric measures pressure with — the highest percentage when
-    // showing percent, the highest pace when showing pace. Also returns
-    // that window's fixed duration, since pace needs it and percent alone
-    // can't tell a 5-hour window from a weekly one.
+    // Picks whichever window is more pressing, in the unit the selected
+    // metric measures pressure with — the highest percentage when showing
+    // percent, the highest overload factor when showing that. Also returns
+    // that window's fixed duration, since the overload factor needs it and
+    // percent alone can't tell a 5-hour window from a weekly one.
     private func activeWindow() -> (window: UsageWindow, duration: TimeInterval)? {
         guard let snapshot = currentSnapshot else { return nil }
         let five = (window: snapshot.fiveHour, duration: UsageSnapshot.fiveHourDuration)
@@ -314,19 +314,21 @@ final class StatusItemController: NSObject, NSMenuDelegate {
         switch viewModel.menuBarMetric {
         case .percent:
             return seven.window.utilization > five.window.utilization ? seven : five
-        case .pace:
-            let fivePace = five.window.pace(windowDuration: five.duration)
-            let sevenPace = seven.window.pace(windowDuration: seven.duration)
-            switch (fivePace, sevenPace) {
-            case let (fivePace?, sevenPace?):
-                return sevenPace > fivePace ? seven : five
+        case .overloadFactor:
+            let fiveOverload = five.window.overloadFactor(windowDuration: five.duration)
+            let sevenOverload = seven.window.overloadFactor(windowDuration: seven.duration)
+            switch (fiveOverload, sevenOverload) {
+            case let (fiveOverload?, sevenOverload?):
+                return sevenOverload > fiveOverload ? seven : five
             case (nil, .some):
                 return seven
             case (.some, nil):
                 return five
             case (nil, nil):
-                // Neither window has a usable pace (e.g. just reset) — fall
-                // back to percent so the menu bar still shows something sensible.
+                // Neither window has a reset moment left to measure against
+                // (no resetsAt — "just reset" yields ~1.0 and an exhausted
+                // budget .infinity, neither of which is nil) — fall back to
+                // percent so the menu bar still shows something sensible.
                 return seven.window.utilization > five.window.utilization ? seven : five
             }
         }
@@ -336,11 +338,18 @@ final class StatusItemController: NSObject, NSMenuDelegate {
         switch viewModel.menuBarMetric {
         case .percent:
             return percentText(window.utilization)
-        case .pace:
-            guard let pace = window.pace(windowDuration: duration) else {
+        case .overloadFactor:
+            guard let overloadFactor = window.overloadFactor(windowDuration: duration) else {
                 return percentText(window.utilization)
             }
-            return paceText(pace)
+            if overloadFactor >= UsageLevel.overloadFactorDisplayCap {
+                // 100% gets its own exact reading; anything below it that
+                // still exceeds the cap shows the capped ">10".
+                return window.utilization >= 100
+                    ? percentText(window.utilization)
+                    : overloadFactorDisplayText()
+            }
+            return ratioText(overloadFactor)
         }
     }
 
@@ -353,8 +362,15 @@ final class StatusItemController: NSObject, NSMenuDelegate {
             .joined()
     }
 
-    private func paceText(_ pace: Double) -> String {
-        pace.formatted(.number.precision(.fractionLength(1)))
+    private func ratioText(_ ratio: Double) -> String {
+        ratio.formatted(.number.precision(.fractionLength(1)))
+    }
+
+    // Capped values lose their decimals anyway, so ">10" (never ">10.3") —
+    // the menu bar reads the cap as "exhausted until reset", not a number.
+    private func overloadFactorDisplayText() -> String {
+        ">" + UsageLevel.overloadFactorDisplayCap
+            .formatted(.number.precision(.fractionLength(0)))
     }
 
     // Derives from `UsageLevel`, the same source `UsagePopoverView` uses, so
@@ -366,11 +382,11 @@ final class StatusItemController: NSObject, NSMenuDelegate {
         switch viewModel.menuBarMetric {
         case .percent:
             return UsageLevel(utilization: active.window.utilization)
-        case .pace:
-            guard let pace = active.window.pace(windowDuration: active.duration) else {
+        case .overloadFactor:
+            guard let overloadFactor = active.window.overloadFactor(windowDuration: active.duration) else {
                 return UsageLevel(utilization: active.window.utilization)
             }
-            return UsageLevel.forPace(pace, utilization: active.window.utilization)
+            return UsageLevel(overloadFactor: overloadFactor)
         }
     }
 
