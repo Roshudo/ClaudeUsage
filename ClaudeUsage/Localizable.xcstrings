@@ -127,12 +127,12 @@
         }
       }
     },
-    "Open Xcode's Claude assistant once – the widget picks the new session up automatically." : {
+    "Open Claude Code or Xcode's Claude agent once – the widget picks the new session up automatically." : {
       "localizations" : {
         "de" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Öffne einmal den Claude-Assistenten von Xcode – das Widget übernimmt die neue Sitzung automatisch."
+            "value" : "Öffne einmal Claude Code oder den Claude Agenten in Xcode – das Widget übernimmt die neue Sitzung automatisch."
           }
         }
       }
