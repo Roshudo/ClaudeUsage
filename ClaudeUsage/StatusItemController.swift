@@ -293,12 +293,15 @@ final class StatusItemController: NSObject, NSMenuDelegate {
     // "5d" for the weekly limit, "4h" or "45m" for the 5-hour limit, never
     // a combined "4h 30m". `Duration`'s narrow-width units style already
     // localizes the unit letter itself (e.g. "5T" in German), so no manual
-    // translation is needed here.
+    // translation is needed here. `zeroValueUnits` is intentionally left at
+    // its default — `.show` makes the formatter ignore `maximumUnitCount`
+    // and print every allowed unit once the value rounds to zero in all of
+    // them (e.g. "0d 0h 0min" for anything under 30 seconds).
     private func compactResetText(until date: Date) -> String {
         let interval = date.timeIntervalSinceNow
         guard interval > 0 else { return String(localized: "now") }
         return Duration.seconds(Int(interval.rounded()))
-            .formatted(.units(allowed: [.days, .hours, .minutes], width: .narrow, maximumUnitCount: 1, zeroValueUnits: .show(length: 1)))
+            .formatted(.units(allowed: [.days, .hours, .minutes], width: .narrow, maximumUnitCount: 1))
     }
 
     // Picks whichever window is more pressing, in the unit the selected
