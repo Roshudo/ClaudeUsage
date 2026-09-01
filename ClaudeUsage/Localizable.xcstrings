@@ -11,6 +11,9 @@
         }
       }
     },
+    "(estimated)" : {
+
+    },
     "%@ used" : {
       "localizations" : {
         "de" : {
@@ -243,6 +246,19 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Zu viele Anfragen."
+          }
+        }
+      }
+    },
+    "unknown" : {
+
+    },
+    "unavailable" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "nicht verfügbar"
           }
         }
       }

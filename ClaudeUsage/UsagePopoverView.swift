@@ -20,21 +20,34 @@ struct UsagePopoverView: View {
                 if currentFailure != nil || staleTimestamp != nil {
                     Divider()
                 }
-                UsageRow(
-                    title: "5-Hour Limit",
-                    window: snapshot.fiveHour,
-                    resetStyle: .duration,
-                    windowDuration: UsageSnapshot.fiveHourDuration,
-                    metric: viewModel.menuBarMetric
-                )
-                Divider()
-                UsageRow(
-                    title: "Weekly Limit",
-                    window: snapshot.sevenDay,
-                    resetStyle: .weekdayTime,
-                    windowDuration: UsageSnapshot.sevenDayDuration,
-                    metric: viewModel.menuBarMetric
-                )
+                // The reset countdowns below are computed from fixed dates,
+                // so they only change when the view re-evaluates. Fresh data
+                // arrives every few minutes either way, but in the failure
+                // case no new data ever arrives — the timeline keeps the
+                // (estimated) countdowns ticking while the popover is open.
+                TimelineView(.periodic(from: .now, by: 30)) { context in
+                    UsageRow(
+                        title: "5-Hour Limit",
+                        window: snapshot.fiveHour,
+                        resetStyle: .duration,
+                        windowDuration: UsageSnapshot.fiveHourDuration,
+                        metric: viewModel.menuBarMetric,
+                        now: context.date,
+                        isEstimate: currentFailure != nil,
+                        staleDataFetchedAt: viewModel.lastKnownUsage?.fetchedAt
+                    )
+                    Divider()
+                    UsageRow(
+                        title: "Weekly Limit",
+                        window: snapshot.sevenDay,
+                        resetStyle: .weekdayTime,
+                        windowDuration: UsageSnapshot.sevenDayDuration,
+                        metric: viewModel.menuBarMetric,
+                        now: context.date,
+                        isEstimate: currentFailure != nil,
+                        staleDataFetchedAt: viewModel.lastKnownUsage?.fetchedAt
+                    )
+                }
             } else if currentFailure == nil {
                 ProgressView()
                     .frame(maxWidth: .infinity)
@@ -122,6 +135,18 @@ private struct UsageRow: View {
     let resetStyle: ResetStyle
     let windowDuration: TimeInterval
     let metric: MenuBarMetric
+    /// Reference time the countdown is computed from. Normally `Date()`, but
+    /// the timeline's date in the failure case, where the value must tick
+    /// even though no fresh data is arriving.
+    var now: Date = Date()
+    /// True when the window's data is stale (last fetch failed or nothing was
+    /// fetched this session yet). The reset countdown is then derived from
+    /// the elapsed window duration instead of the reported reset time and
+    /// gets an "(estimated)" annotation.
+    var isEstimate: Bool = false
+    /// When the stale data was fetched — the reference point the estimated
+    /// countdown is anchored to (see `resetLabel`).
+    var staleDataFetchedAt: Date?
 
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
@@ -151,16 +176,39 @@ private struct UsageRow: View {
         }
     }
 
-    // The reset date is present on every live response and on the cached
-    // snapshot that failure/first-launch paths display, so `nil` would only
-    // mean the response was malformed in a way the client silently tolerated
-    // (e.g. an unparseable date string). Surface that in development.
+    // `resets_at` is legitimately `null` for windows the API reports as
+    // empty (confirmed in the raw response: 0% utilization and no reset
+    // date), and a snapshot captured in that state gets persisted by
+    // `UsageCache`, so the popover has to handle it across relaunches too.
+    // There's no countdown to render then — the row says the value is
+    // currently unavailable rather than showing an empty line.
     private var resetLabel: AnyView {
+        if isEstimate {
+            // The stale snapshot's reported reset date can't be trusted here:
+            // the window may already have rolled over (e.g. a 5-hour window
+            // fetched 20 minutes before reset) and the date would now be in
+            // the past, freezing the display. Instead, the remaining time is
+            // derived from the window's fixed duration — the data's age since
+            // the last successful fetch is subtracted from it — so the
+            // countdown keeps ticking live even though no new data is
+            // arriving.
+            return AnyView(Text("Reset: \(estimatedDurationText())"))
+        }
         if let resetsAt = window.resetsAt {
             return AnyView(Text("Reset: \(resetText(for: resetsAt))"))
         }
-        assertionFailure("UsageWindow without resetsAt in the popover")
-        return AnyView(EmptyView())
+        return AnyView(Text("Reset: \(String(localized: "unavailable"))"))
+    }
+
+    /// Remaining time of the stale window's reset, estimated from how long
+    /// the window has already been running (its age) instead of the
+    /// reported reset date — see `resetLabel`.
+    private func estimatedDurationText() -> String {
+        guard let fetchedAt = staleDataFetchedAt else {
+            return String(localized: "unknown")
+        }
+        let estimated = windowDuration - now.timeIntervalSince(fetchedAt)
+        return durationText(remaining: estimated, isEstimate: true)
     }
 
     // The tick mark on the bar showing where usage "should" be if it were
@@ -232,18 +280,24 @@ private struct UsageRow: View {
     }
 
     private func durationText(until date: Date) -> String {
-        let interval = date.timeIntervalSinceNow
-        guard interval > 0 else {
-            return String(localized: "now")
-        }
-        let totalMinutes = Int((interval / 60).rounded())
-        let hours = totalMinutes / 60
-        let minutes = totalMinutes % 60
-        if hours > 0 {
-            return String(localized: "in \(hours) hr \(minutes) min")
+        durationText(remaining: date.timeIntervalSinceNow, isEstimate: false)
+    }
+
+    private func durationText(remaining interval: TimeInterval, isEstimate: Bool) -> String {
+        let text: String
+        if interval > 0 {
+            let totalMinutes = Int((interval / 60).rounded())
+            let hours = totalMinutes / 60
+            let minutes = totalMinutes % 60
+            if hours > 0 {
+                text = String(localized: "in \(hours) hr \(minutes) min")
+            } else {
+                text = String(localized: "in \(minutes) min")
+            }
         } else {
-            return String(localized: "in \(minutes) min")
+            text = String(localized: "now")
         }
+        return isEstimate ? "\(text) \(String(localized: "(estimated)"))" : text
     }
 }
 
