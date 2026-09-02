@@ -183,32 +183,10 @@ private struct UsageRow: View {
     // There's no countdown to render then — the row says the value is
     // currently unavailable rather than showing an empty line.
     private var resetLabel: AnyView {
-        if isEstimate {
-            // The stale snapshot's reported reset date can't be trusted here:
-            // the window may already have rolled over (e.g. a 5-hour window
-            // fetched 20 minutes before reset) and the date would now be in
-            // the past, freezing the display. Instead, the remaining time is
-            // derived from the window's fixed duration — the data's age since
-            // the last successful fetch is subtracted from it — so the
-            // countdown keeps ticking live even though no new data is
-            // arriving.
-            return AnyView(Text("Reset: \(estimatedDurationText())"))
-        }
         if let resetsAt = window.resetsAt {
             return AnyView(Text("Reset: \(resetText(for: resetsAt))"))
         }
         return AnyView(Text("Reset: \(String(localized: "unavailable"))"))
-    }
-
-    /// Remaining time of the stale window's reset, estimated from how long
-    /// the window has already been running (its age) instead of the
-    /// reported reset date — see `resetLabel`.
-    private func estimatedDurationText() -> String {
-        guard let fetchedAt = staleDataFetchedAt else {
-            return String(localized: "unknown")
-        }
-        let estimated = windowDuration - now.timeIntervalSince(fetchedAt)
-        return durationText(remaining: estimated, isEstimate: true)
     }
 
     // The tick mark on the bar showing where usage "should" be if it were
@@ -280,10 +258,10 @@ private struct UsageRow: View {
     }
 
     private func durationText(until date: Date) -> String {
-        durationText(remaining: date.timeIntervalSinceNow, isEstimate: false)
+        durationText(remaining: date.timeIntervalSinceNow)
     }
 
-    private func durationText(remaining interval: TimeInterval, isEstimate: Bool) -> String {
+    private func durationText(remaining interval: TimeInterval) -> String {
         let text: String
         if interval > 0 {
             let totalMinutes = Int((interval / 60).rounded())
