@@ -86,7 +86,7 @@ struct UsageSnapshot: Decodable {
     }
 }
 
-enum ClaudeUsageError: Error, LocalizedError {
+enum ClaudeLimitsError: Error, LocalizedError {
     case notAuthenticated
     case rateLimited(retryAfter: TimeInterval?)
     case server(Int)
@@ -117,7 +117,7 @@ enum ClaudeUsageError: Error, LocalizedError {
     }
 }
 
-struct ClaudeUsageClient {
+struct ClaudeLimitsClient {
     private let session = URLSession(configuration: .ephemeral)
     private let usageURL = URL(string: "https://api.anthropic.com/api/oauth/usage")!
 
@@ -127,7 +127,7 @@ struct ClaudeUsageClient {
         // spending a request — and a slot in the server's rate limit — on a
         // call that can only come back 401.
         guard !credentials.isExpired else {
-            throw ClaudeUsageError.notAuthenticated
+            throw ClaudeLimitsError.notAuthenticated
         }
 
         var request = URLRequest(url: usageURL)
@@ -138,23 +138,23 @@ struct ClaudeUsageClient {
         let (data, response) = try await session.data(for: request)
 
         guard let http = response as? HTTPURLResponse else {
-            throw ClaudeUsageError.server(-1)
+            throw ClaudeLimitsError.server(-1)
         }
         if http.statusCode == 401 {
-            throw ClaudeUsageError.notAuthenticated
+            throw ClaudeLimitsError.notAuthenticated
         }
         if http.statusCode == 429 {
             let retryAfter = http.value(forHTTPHeaderField: "Retry-After").flatMap(Double.init)
-            throw ClaudeUsageError.rateLimited(retryAfter: retryAfter)
+            throw ClaudeLimitsError.rateLimited(retryAfter: retryAfter)
         }
         guard (200..<300).contains(http.statusCode) else {
-            throw ClaudeUsageError.server(http.statusCode)
+            throw ClaudeLimitsError.server(http.statusCode)
         }
 
         do {
             return try JSONDecoder().decode(UsageSnapshot.self, from: data)
         } catch {
-            throw ClaudeUsageError.decoding
+            throw ClaudeLimitsError.decoding
         }
     }
 }

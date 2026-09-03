@@ -59,7 +59,7 @@ final class UsageViewModel {
             UserDefaults.standard.set(menuBarMetric.rawValue, forKey: Self.menuBarMetricDefaultsKey)
         }
     }
-    private let client = ClaudeUsageClient()
+    private let client = ClaudeLimitsClient()
     private var pollTask: Task<Void, Never>?
     private var nextInterval: Double = 0
     private var consecutiveFailures = 0
@@ -145,7 +145,7 @@ final class UsageViewModel {
             rateLimitedUntil = nil
             consecutiveFailures = 0
             nextInterval = Self.normalInterval
-        } catch let error as ClaudeUsageError {
+        } catch let error as ClaudeLimitsError {
             switch error {
             case .notAuthenticated:
                 enterCredentialsWait(for: error)
@@ -182,7 +182,7 @@ final class UsageViewModel {
         rateLimitedUntil = until
         consecutiveFailures = 0
         nextInterval = max(until.timeIntervalSinceNow, 1)
-        state = .failed(failure(for: ClaudeUsageError.rateLimited(retryAfter: nil), retryAt: until))
+        state = .failed(failure(for: ClaudeLimitsError.rateLimited(retryAfter: nil), retryAt: until))
     }
 
     // Records the fingerprint of the session that failed so `refresh(force:)`

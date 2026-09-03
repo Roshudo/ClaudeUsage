@@ -8,7 +8,7 @@ enum KeychainCredentialError: Error, LocalizedError {
     case accessDenied(OSStatus)
 
     // A missing session and an expired one are both fixed by the same
-    // single step, so the wording lives here and `ClaudeUsageError` reuses it.
+    // single step, so the wording lives here and `ClaudeLimitsError` reuses it.
     static var signInHint: String {
         String(localized: "Open Claude Code or Xcode's Claude agent once – the widget picks the new session up automatically.")
     }
